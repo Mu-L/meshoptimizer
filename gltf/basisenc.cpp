@@ -26,15 +26,15 @@ struct BasisSettings
 };
 
 static const BasisSettings kBasisSettings[10] = {
-    {1, 1, 0, 1.5f},
-    {1, 6, 0, 1.f},
-    {1, 20, 1, 1.0f},
-    {1, 50, 1, 0.75f},
-    {1, 90, 1, 0.5f},
-    {1, 128, 1, 0.4f},
-    {1, 160, 1, 0.34f},
-    {1, 192, 1, 0.29f}, // default
-    {1, 224, 2, 0.26f},
+    {1, 1, 0, 4.f},
+    {1, 32, 0, 3.f},
+    {1, 64, 1, 2.f},
+    {1, 96, 1, 1.5f},
+    {1, 128, 1, 1.f}, // quality arguments aligned with basisu defaults
+    {1, 150, 1, 0.8f},
+    {1, 170, 1, 0.6f},
+    {1, 192, 1, 0.4f}, // gltfpack defaults
+    {1, 224, 2, 0.2f},
     {1, 255, 2, 0.f},
 };
 
@@ -84,7 +84,12 @@ static void fillParams(basisu::basis_compressor_params& params, const char* inpu
 	}
 
 	params.m_read_source_images = true;
+
+#if BASISU_LIB_VERSION >= 150
+	params.m_write_output_basis_or_ktx2_files = true;
+#else
 	params.m_write_output_basis_files = true;
+#endif
 
 	params.m_source_filenames.resize(1);
 	params.m_source_filenames[0] = input;
@@ -98,16 +103,18 @@ static const char* prepareEncode(basisu::basis_compressor_params& params, const 
 {
 	std::string img_data;
 	std::string mime_type;
-	std::string result;
 
 	if (!readImage(image, input_path, img_data, mime_type))
 		return "error reading source file";
+
+	if (mime_type != "image/png" && mime_type != "image/jpeg")
+		return NULL;
 
 	int width = 0, height = 0;
 	if (!getDimensions(img_data, mime_type.c_str(), width, height))
 		return "error parsing image header";
 
-	adjustDimensions(width, height, settings);
+	adjustDimensions(width, height, settings.texture_scale[info.kind], settings.texture_limit[info.kind], settings.texture_pow2);
 
 	temp_input = temp_prefix + mimeExtension(mime_type.c_str());
 	temp_output = temp_prefix + ".ktx2";
